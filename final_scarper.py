@@ -10,22 +10,16 @@ from datetime import datetime
 from collections import defaultdict
 import psutil
 import aiofiles
-# import fcntl
-from pathlib import Path
 
-# ---------------------------------------------------------
-# ⚙️ CONFIGURATION
-# ---------------------------------------------------------
 NUM_PARALLEL_SCRAPERS = 10
-
 QUERIES_BEFORE_BREAK = 100
 SHORT_BREAK_RANGE = (2, 5)
 LONG_BREAK_RANGE = (20, 45)
 
 SKIP_REVIEWS = False
-MAX_PLACES_PER_QUERY = 20
+MAX_PLACES_PER_QUERY = 100  # INCREASED from 20 to 100!
 BATCH_SIZE = 10
-SCROLL_ITERATIONS = 3
+SCROLL_ITERATIONS = 8  # INCREASED from 3 to 8 for more results
 REVIEW_SCROLL_COUNT = 10
 
 ENABLE_AUTO_RETRY = True
@@ -113,7 +107,7 @@ HIERARCHICAL_CATEGORIES = {
     
     "Work-Remote": {
         "Coworking": ["Coworking space", "Hot desk", "Private office"],
-        "Cafes": ["Cafe with wifi", "Work-friendly cafe", "Quiet cafe"],
+        "Cafes": ["Cafe with wifi", "Work-friendly cafe" ],
         "Business": ["Business center", "Meeting room"]
     },
     
@@ -136,81 +130,51 @@ HIERARCHICAL_CATEGORIES = {
     },
 
 }
+
+
 # ---------------------------------------------------------
-# 🌍 CITIES
+# 🌍 CITIES (NO NEIGHBORHOODS!)
 # ---------------------------------------------------------
 CITIES = {
     "bangkok": {
         "name": "Bangkok, Thailand",
         "coords": "13.7563,100.5018",
-        "zoom": "13z",
-        "neighborhoods": [
-            "Sukhumvit", "Silom", "Siam", "Sathorn", "Ratchathewi",
-            "Phrom Phong", "Thong Lo", "Ekkamai", "Asok", "Nana",
-            "Ari", "Phaya Thai", "Riverside", "Chinatown", "Khao San Road"
-        ]
+        "zoom": "12z",
     },
     "dubai": {
         "name": "Dubai, UAE",
         "coords": "25.2048,55.2708",
-        "zoom": "13z",
-        "neighborhoods": [
-            "Downtown Dubai", "Dubai Marina", "JBR", "Palm Jumeirah",
-            "Business Bay", "DIFC", "City Walk", "La Mer", "Jumeirah"
-        ]
+        "zoom": "12z",
     },
     "tokyo": {
         "name": "Tokyo, Japan",
         "coords": "35.6762,139.6503",
-        "zoom": "13z",
-        "neighborhoods": [
-            "Shibuya", "Shinjuku", "Harajuku", "Roppongi", "Ginza",
-            "Akihabara", "Asakusa", "Ueno", "Ikebukuro", "Ebisu"
-        ]
+        "zoom": "11z",
     },
     "newyork": {
         "name": "New York City, USA",
         "coords": "40.7128,-74.0060",
-        "zoom": "12z",
-        "neighborhoods": [
-            "Manhattan", "Brooklyn", "Times Square", "Midtown", "Chelsea",
-            "SoHo", "Tribeca", "East Village", "Williamsburg", "DUMBO"
-        ]
+        "zoom": "11z",
     },
     "rome": {
         "name": "Rome, Italy",
         "coords": "41.9028,12.4964",
-        "zoom": "13z",
-        "neighborhoods": [
-            "Centro Storico", "Trastevere", "Monti", "Testaccio",
-            "Vatican City", "Spanish Steps", "Trevi Fountain", "Colosseum"
-        ]
+        "zoom": "12z",
     },
     "amsterdam": {
         "name": "Amsterdam, Netherlands",
         "coords": "52.3676,4.9041",
-        "zoom": "13z",
-        "neighborhoods": [
-            "City Centre", "Jordaan", "De Pijp", "Oud-West",
-            "Museum Quarter", "Red Light District", "Waterlooplein"
-        ]
+        "zoom": "12z",
     },
     "london": {
         "name": "London, UK",
         "coords": "51.5074,-0.1278",
-        "zoom": "12z",
-        "neighborhoods": [
-            "Westminster", "Soho", "Covent Garden", "Shoreditch", "Camden",
-            "Notting Hill", "Kensington", "Chelsea", "King's Cross"
-        ]
+        "zoom": "11z",
     },
     "eilat": {
         "name": "Eilat, Israel",
         "coords": "29.5581,34.9482",
-        "zoom": "14z",
-        "neighborhoods": [
-            "North Beach", "Coral Beach", "City Center", "Hotel District", "Marina"
-        ]
+        "zoom": "13z",
     }
 }
 
@@ -218,25 +182,19 @@ CITIES = {
 # 🔒 THREAD-SAFE FILE OPERATIONS
 # ---------------------------------------------------------
 class ThreadSafeFileManager:
-    """Manages all file operations with proper locking"""
-    
     def __init__(self):
         self.locks = defaultdict(asyncio.Lock)
     
     async def append_line(self, filename, content):
-        """Thread-safe line append with file locking"""
         async with self.locks[filename]:
             try:
-                # Use aiofiles for async file operations
                 async with aiofiles.open(filename, 'a', encoding='utf-8') as f:
                     await f.write(f"{content}\n")
                     await f.flush()
-                    os.fsync(f.fileno())
             except Exception as e:
-                print(f"⚠️ File write error ({filename}): {e}")
+                print(f"⚠️ File write error: {e}")
     
     async def read_lines(self, filename):
-        """Thread-safe file reading"""
         async with self.locks[filename]:
             try:
                 if not os.path.exists(filename):
@@ -246,11 +204,10 @@ class ThreadSafeFileManager:
                     content = await f.read()
                     return set(line.strip() for line in content.split('\n') if line.strip())
             except Exception as e:
-                print(f"⚠️ File read error ({filename}): {e}")
+                print(f"⚠️ File read error: {e}")
                 return set()
     
     async def append_to_csv(self, data_list, filepath):
-        """Thread-safe CSV appending with proper locking"""
         if not data_list:
             return
         
@@ -258,32 +215,28 @@ class ThreadSafeFileManager:
             try:
                 new_df = pd.DataFrame(data_list)
                 
-                # Data quality checks
                 if ENABLE_QUALITY_CHECKS:
                     new_df = new_df[new_df['place_name'].str.len() > 2]
                     new_df = new_df[new_df['rating'] <= 5.0]
                 
-                # Use file locking for CSV operations
                 if os.path.exists(filepath):
                     try:
                         existing_df = pd.read_csv(filepath, encoding='utf-8-sig')
                         combined_df = pd.concat([existing_df, new_df], ignore_index=True)
                         combined_df = combined_df.drop_duplicates(subset=['place_name', 'url'])
                         combined_df.to_csv(filepath, index=False, encoding='utf-8-sig')
-                    except Exception as e:
-                        print(f"⚠️ CSV merge error: {e}")
+                    except:
                         new_df.to_csv(filepath, index=False, encoding='utf-8-sig')
                 else:
                     new_df.to_csv(filepath, index=False, encoding='utf-8-sig')
                     
             except Exception as e:
-                print(f"⚠️ CSV append error: {e}")
+                print(f"⚠️ CSV error: {e}")
 
-# Global file manager instance
 file_manager = ThreadSafeFileManager()
 
 # ---------------------------------------------------------
-# 📊 THREAD-SAFE PROGRESS TRACKER
+# 📊 PROGRESS TRACKER
 # ---------------------------------------------------------
 class ProgressTracker:
     def __init__(self, total_tasks, num_scrapers):
@@ -300,7 +253,6 @@ class ProgressTracker:
             'avg_places_per_query': 0,
             'queries_per_minute': 0,
             'eta_minutes': 0,
-            'scraper_stats': defaultdict(lambda: {'completed': 0, 'failed': 0, 'speed': []})
         }
         
         self.lock = asyncio.Lock()
@@ -310,12 +262,8 @@ class ProgressTracker:
             if status == 'completed':
                 self.stats['completed'] += 1
                 self.stats['places_scraped'] += places_count
-                self.stats['scraper_stats'][scraper_id]['completed'] += 1
-                if query_time > 0:
-                    self.stats['scraper_stats'][scraper_id]['speed'].append(query_time)
             elif status == 'failed':
                 self.stats['failed'] += 1
-                self.stats['scraper_stats'][scraper_id]['failed'] += 1
             elif status == 'skipped':
                 self.stats['skipped'] += 1
             elif status == 'retried':
@@ -336,14 +284,12 @@ class ProgressTracker:
         
         return f"""
 ╔════════════════════════════════════════════════════════════════╗
-║  📊 SCRAPER PROGRESS                                          ║
+║  📊 PROGRESS                                                   ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Progress: {progress_pct:.1f}% ({self.stats['completed'] + self.stats['skipped']}/{self.total_tasks})
-║  ✅ Done: {self.stats['completed']}  |  ❌ Failed: {self.stats['failed']}  |  ⏭️  Skip: {self.stats['skipped']}
-║  🔄 Retries: {self.stats['retried']}  |  🏢 Places: {self.stats['places_scraped']}
-║  ⏱️  Speed: {self.stats['queries_per_minute']:.1f}/min
-║  📍 Avg: {self.stats['avg_places_per_query']:.1f} places/query
-║  ⏳ ETA: {self.stats['eta_minutes']:.0f} min  |  ⏰ Elapsed: {elapsed/60:.1f} min
+║  {progress_pct:.1f}% ({self.stats['completed'] + self.stats['skipped']}/{self.total_tasks})
+║  ✅ {self.stats['completed']}  |  ❌ {self.stats['failed']}  |  ⏭️  {self.stats['skipped']}  |  🔄 {self.stats['retried']}
+║  🏢 {self.stats['places_scraped']} places  |  📍 {self.stats['avg_places_per_query']:.1f} avg/query
+║  ⏱️  {self.stats['queries_per_minute']:.1f}/min  |  ⏳ ETA: {self.stats['eta_minutes']:.0f}min  |  ⏰ {elapsed/60:.1f}min
 ╚════════════════════════════════════════════════════════════════╝
 """
 
@@ -396,8 +342,8 @@ class CheckpointManager:
             try:
                 async with aiofiles.open(self.checkpoint_file, 'w') as f:
                     await f.write(json.dumps(data, indent=2))
-            except Exception as e:
-                print(f"⚠️ Checkpoint save error: {e}")
+            except:
+                pass
     
     async def load_checkpoint(self):
         async with self.lock:
@@ -446,24 +392,25 @@ def parse_proxy(proxy_string):
         return {"server": f"http://{parts[0]}:{parts[1]}"}
     return None
 
-def generate_tasks_with_subcategories(neighborhoods, city_name):
-    """Generate tasks with hierarchical categories"""
+def generate_city_tasks(city_name):
+    """
+    Generate tasks at CITY LEVEL (no neighborhoods!)
+    Query format: "Sushi bar in Tokyo, Japan"
+    """
     tasks = []
     
-    for neighborhood in neighborhoods:
-        for main_category, subcategories in HIERARCHICAL_CATEGORIES.items():
-            for subcategory, poi_types in subcategories.items():
-                for poi_type in poi_types:
-                    # Full category path: "Entertainment-Culture-Museums"
-                    full_category = f"{main_category}-{subcategory}"
-                    
-                    tasks.append({
-                        "query": f"{poi_type} in {neighborhood}, {city_name}",
-                        "category": full_category,
-                        "main_category": main_category,
-                        "subcategory": subcategory,
-                        "poi_type": poi_type
-                    })
+    for main_category, subcategories in HIERARCHICAL_CATEGORIES.items():
+        for subcategory, poi_types in subcategories.items():
+            for poi_type in poi_types:
+                full_category = f"{main_category}-{subcategory}"
+                
+                tasks.append({
+                    "query": f"{poi_type} in {city_name}",  # ✅ Just city, no district!
+                    "category": full_category,
+                    "main_category": main_category,
+                    "subcategory": subcategory,
+                    "poi_type": poi_type
+                })
     
     return tasks
 
@@ -491,6 +438,8 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             )
             page = await context.new_page()
 
+            print(f"[S{scraper_id}] 🔎 {query}")
+
             await page.goto(
                 f"https://www.google.com/maps/search/{query.replace(' ', '+')}/@{city_config['coords']},{city_config['zoom']}?hl=en",
                 timeout=30000
@@ -501,6 +450,7 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             except:
                 pass
 
+            # MORE SCROLLING to load more results
             await page.mouse.move(100, 400)
             for _ in range(SCROLL_ITERATIONS):
                 await page.mouse.wheel(0, 3000)
@@ -508,10 +458,12 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
 
             place_elements = await page.locator('a.hfpxzc').all()
             total_found = len(place_elements)
+            print(f"[S{scraper_id}] ✨ {total_found} places found")
 
             results = []
             success_count = 0
 
+            # Process up to MAX_PLACES_PER_QUERY (100)
             for i in range(min(total_found, MAX_PLACES_PER_QUERY)):
                 try:
                     el = page.locator('a.hfpxzc').nth(i)
@@ -593,14 +545,14 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
                         except:
                             pass
 
-                    # Include hierarchical category information
+                    # Same fields as before: lat, lon, category hierarchy, etc.
                     results.append({
                         "place_name": name,
                         "url": place_url,
-                        "category": category_info["category"],  # "Entertainment-Culture-Museums"
-                        "main_category": category_info["main_category"],  # "Entertainment"
-                        "subcategory": category_info["subcategory"],  # "Culture"
-                        "poi_type": category_info["poi_type"],  # "Museum"
+                        "category": category_info["category"],
+                        "main_category": category_info["main_category"],
+                        "subcategory": category_info["subcategory"],
+                        "poi_type": category_info["poi_type"],
                         "rating": rating,
                         "num_of_reviews": num_reviews,
                         "reviews_content": reviews_content,
@@ -626,6 +578,8 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             if ENABLE_PROXY_ROTATION and proxy_manager:
                 proxy_str = proxy_config['server'].split('//')[1]
                 await proxy_manager.report_result(proxy_str, True)
+            
+            print(f"[S{scraper_id}] ✅ {success_count} places scraped")
             
             return True, success_count
 
@@ -678,7 +632,6 @@ async def run_scraper_instance(scraper_id, tasks, proxy, city_config, files,
             await tracker.update(scraper_id, 'skipped')
             continue
         
-        # Pass full category info
         category_info = {
             "category": task["category"],
             "main_category": task["main_category"],
@@ -739,11 +692,8 @@ async def scrape_city(city_key, city_config):
     checkpoint_mgr = CheckpointManager(city_key)
     proxy_manager = ProxyManager(PROXIES) if ENABLE_PROXY_ROTATION else None
     
-    # Generate hierarchical tasks
-    ALL_TASKS = generate_tasks_with_subcategories(
-        city_config['neighborhoods'],
-        city_config['name']
-    )
+    # Generate city-level tasks (NO NEIGHBORHOODS!)
+    ALL_TASKS = generate_city_tasks(city_config['name'])
     
     random.shuffle(ALL_TASKS)
     
@@ -758,8 +708,9 @@ async def scrape_city(city_key, city_config):
     if len(ALL_TASKS) % NUM_PARALLEL_SCRAPERS:
         task_chunks[-1].extend(ALL_TASKS[NUM_PARALLEL_SCRAPERS * chunk_size:])
     
-    print(f"📊 {len(ALL_TASKS)} tasks | ~{chunk_size}/scraper")
-    print(f"🗂️  Hierarchical categories enabled")
+    print(f"📊 {len(ALL_TASKS)} tasks (city-level queries)")
+    print(f"🎯 Up to {MAX_PLACES_PER_QUERY} places per query")
+    print(f"⚡ Expected: ~{len(ALL_TASKS) / (NUM_PARALLEL_SCRAPERS * 10):.0f} minutes")
     print(f"📁 Output: {files['data']}\n")
     
     selected_proxies = PROXIES[:NUM_PARALLEL_SCRAPERS]
@@ -788,6 +739,7 @@ async def scrape_city(city_key, city_config):
     print(f"✅ {city_config['name'].upper()} COMPLETED")
     print(f"⏱️  Duration: {duration/60:.1f} minutes")
     print(f"📁 Data: {files['data']}")
+    print(f"📊 Total places: {tracker.stats['places_scraped']}")
     print("="*70)
     
     checkpoint_mgr.clear_checkpoint()
@@ -797,7 +749,7 @@ async def scrape_city(city_key, city_config):
 # ---------------------------------------------------------
 async def main():
     print("="*70)
-    print("🚀 THREAD-SAFE MULTI-CITY SCRAPER WITH SUBCATEGORIES")
+    print("🚀 CITY-LEVEL SCRAPER (NO DISTRICTS)")
     print("="*70)
     
     city_keys = list(CITIES.keys())
@@ -816,13 +768,13 @@ async def main():
                 
                 for city_key, city_config in CITIES.items():
                     await scrape_city(city_key, city_config)
-                    print("\n⏸️  5 min break...\n")
-                    await asyncio.sleep(300)
+                    print("\n⏸️  3 min break...\n")
+                    await asyncio.sleep(180)
                 
                 total_duration = (datetime.now() - total_start).total_seconds()
                 print("\n" + "="*70)
                 print("🎉 ALL CITIES COMPLETED!")
-                print(f"⏱️  Total: {total_duration/3600:.1f} hours")
+                print(f"⏱️  Total: {total_duration/60:.1f} minutes ({total_duration/3600:.1f} hours)")
                 print("="*70)
                 break
             
@@ -841,5 +793,13 @@ async def main():
             print("\n\n❌ Cancelled")
             break
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
+    # Install aiofiles if needed
+    try:
+        import aiofiles
+    except ImportError:
+        print("📦 Installing aiofiles...")
+        os.system("pip install aiofiles")
+        import aiofiles
+    
     asyncio.run(main())
