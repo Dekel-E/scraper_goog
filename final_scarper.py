@@ -13,14 +13,21 @@ import aiofiles
 
 NUM_PARALLEL_SCRAPERS = 10
 QUERIES_BEFORE_BREAK = 100
-SHORT_BREAK_RANGE = (2, 5)
-LONG_BREAK_RANGE = (20, 45)
+SHORT_BREAK_RANGE = (1, 3)      # OPTIMIZED: Reduced from (2, 5)
+LONG_BREAK_RANGE = (15, 30)     # OPTIMIZED: Reduced from (20, 45)
 
 SKIP_REVIEWS = False
 MAX_PLACES_PER_QUERY = 100  # INCREASED from 20 to 100!
 BATCH_SIZE = 10
-SCROLL_ITERATIONS = 8  # INCREASED from 3 to 8 for more results
+SCROLL_ITERATIONS = 5  # OPTIMIZED: Reduced from 8 to 5
 REVIEW_SCROLL_COUNT = 10
+
+REVIEW_WAIT_AFTER_CLICK = (1.5, 2.5)      # OPTIMIZED: Reduced from (2.5, 4.0)
+REVIEW_TAB_WAIT = (1.0, 1.5)              # OPTIMIZED: Reduced from (2.0, 3)
+REVIEW_SCROLL_DELAY = (0.3, 0.5)          # OPTIMIZED: Reduced from (0.4, 0.6)
+REVIEW_EXPAND_WAIT = (0.8, 1.2)           # OPTIMIZED: Reduced from (1.5, 2)
+REVIEW_FINAL_WAIT = (0.8, 1.2)            # OPTIMIZED: Reduced from (1.5, 2)
+MAX_SCROLL_ATTEMPTS = 7                    # OPTIMIZED: Reduced from 10
 
 ENABLE_AUTO_RETRY = True
 MAX_RETRIES = 3
@@ -234,7 +241,234 @@ class ThreadSafeFileManager:
                 print(f"⚠️ CSV error: {e}")
 
 file_manager = ThreadSafeFileManager()
-
+# ---------------------------------------------------------
+# 🔧 ULTRA-ROBUST REVIEW SCRAPING WITH ARIA-LABEL COUNT
+# ---------------------------------------------------------
+async def scrape_reviews_ultra_robust(page, scraper_id, place_name):
+    """
+    Ultra-patient review scraping - extracts review text content only
+    Returns: reviews_content (string)
+    """
+    
+    if SKIP_REVIEWS:
+        return ""
+    
+    reviews_content = ""
+    
+    try:
+        # STEP 1: Wait for place details to fully load
+        wait_time = random.uniform(*REVIEW_WAIT_AFTER_CLICK)
+        await asyncio.sleep(wait_time)
+        
+        # Wait for the main content area to be stable
+        try:
+            await page.wait_for_selector('div[role="main"]', timeout=5000, state='visible')
+        except:
+            pass
+        
+        # STEP 2: Click reviews button to get review content
+        review_button_clicked = False
+        
+        review_button_selectors = [
+            'button.Gpq6kf.NlVald',
+            'button[aria-label*="Reviews"]',
+            'button[aria-label*="reviews"]',
+            'button:has-text("Reviews")',
+            'button.hh2c6',
+            'div[role="tablist"] button:nth-child(2)',
+            'button[data-value="Reviews"]',
+            'button[jsaction*="review"]',
+        ]
+        
+        for selector in review_button_selectors:
+            try:
+                review_tab = page.locator(selector).first
+                
+                if await review_tab.is_visible(timeout=3000):
+                    await review_tab.scroll_into_view_if_needed()
+                    await asyncio.sleep(0.3)
+                    await review_tab.click()
+                    review_button_clicked = True
+                    break
+            except Exception as e:
+                continue
+        
+        if not review_button_clicked:
+            print(f"[S{scraper_id}] ❌ No review button found for: {place_name}")
+            return ""
+        
+        # STEP 3: Wait for reviews section to load
+        wait_time = random.uniform(*REVIEW_TAB_WAIT)
+        await asyncio.sleep(wait_time)
+        
+        # Wait for review content to appear
+        review_appeared = False
+        review_content_selectors = [
+            '.wiI7pd',
+            '.MyEned',
+            'div[data-review-id]',
+            'div[jsaction*="review"]',
+        ]
+        
+        for selector in review_content_selectors:
+            try:
+                await page.wait_for_selector(selector, timeout=5000, state='visible')
+                review_appeared = True
+                break
+            except:
+                continue
+        
+        # STEP 5: Check for "No reviews" messages
+        no_reviews_selectors = [
+            'text="No reviews"',
+            'text="Be the first to review"',
+            'text="No reviews yet"',
+            'div:has-text("No reviews")',
+            'div:has-text("Be the first")',
+        ]
+        
+        for selector in no_reviews_selectors:
+            try:
+                no_review_elem = page.locator(selector).first
+                if await no_review_elem.is_visible(timeout=2000):
+                    print(f"[S{scraper_id}] ℹ️ No reviews available for: {place_name}")
+                    await page.keyboard.press("Escape")
+                    return ""
+            except:
+                continue
+        
+        # STEP 6: Scroll to load more reviews
+        # Calculate how many scrolls we might need
+            estimated_scrolls = MAX_SCROLL_ATTEMPTS
+        
+        previous_review_count = 0
+        no_new_reviews_count = 0
+        
+        for scroll_num in range(estimated_scrolls):
+            # Scroll down
+            await page.keyboard.press("PageDown")
+            
+            # Wait between scrolls
+            scroll_wait = random.uniform(*REVIEW_SCROLL_DELAY)
+            await asyncio.sleep(scroll_wait)
+            
+            # Check if new reviews appeared (OPTIMIZED: check less frequently)
+            if scroll_num % 3 == 0:  # Check every 3 scrolls
+                try:
+                    current_reviews = await page.locator('.wiI7pd').count()
+                    
+                    if current_reviews == previous_review_count:
+                        no_new_reviews_count += 1
+                        if no_new_reviews_count >= 2:
+                            break
+                    else:
+                        no_new_reviews_count = 0
+                    
+                    previous_review_count = current_reviews
+                except:
+                    pass
+        
+        # STEP 6: Wait for scroll to settle (OPTIMIZED)
+        await asyncio.sleep(random.uniform(0.5, 1.0))
+        
+        # STEP 7: Expand "More" buttons (with multiple attempts)
+        
+        expand_button_selectors = [
+            'button.w8nwRe',
+            'button:has-text("More")',
+            'button[aria-label*="See more"]',
+            'button[aria-label*="more"]',
+            'button.lMbq3e',
+        ]
+        
+        # Multiple expansion passes (OPTIMIZED: 2 instead of 3)
+        for expansion_pass in range(2):
+            expanded_count = 0
+            
+            for selector in expand_button_selectors:
+                try:
+                    expand_buttons = await page.locator(selector).all()
+                    
+                    for btn in expand_buttons[:50]:
+                        try:
+                            if await btn.is_visible(timeout=500):
+                                await btn.click(timeout=500)
+                                expanded_count += 1
+                                await asyncio.sleep(0.1)
+                        except:
+                            continue
+                    
+                except:
+                    continue
+            
+            if expansion_pass < 1:
+                await asyncio.sleep(random.uniform(0.3, 0.6))
+        
+        # STEP 8: Final wait for all expansions to render
+        wait_time = random.uniform(*REVIEW_FINAL_WAIT)
+        await asyncio.sleep(wait_time)
+        
+        # STEP 9: Extract review texts with multiple strategies
+        
+        review_text_selectors = [
+            '.wiI7pd',
+            '.MyEned',
+            'span.wiI7pd',
+            'div.MyEned span',
+            'div[data-review-id] span.wiI7pd',
+            'div[jsaction*="review"] .wiI7pd',
+        ]
+        
+        all_review_texts = []
+        
+        for selector_idx, selector in enumerate(review_text_selectors):
+            try:
+                review_elements = await page.locator(selector).all()
+                
+                if review_elements:
+                    for review_elem in review_elements[:100]:
+                        try:
+                            text = await review_elem.inner_text(timeout=1000)
+                            if text:
+                                clean_text = text.replace('\n', ' ').replace('\r', ' ').strip()
+                                
+                                if len(clean_text) > 20 and not clean_text.replace(' ', '').isdigit():
+                                    all_review_texts.append(clean_text)
+                        except:
+                            continue
+                    
+                    if all_review_texts:
+                        break
+            except Exception as e:
+                continue
+        
+        # STEP 10: Deduplicate and clean
+        unique_reviews = []
+        seen = set()
+        
+        for review in all_review_texts:
+            normalized = review.lower().strip()
+            if normalized not in seen and len(normalized) > 20:
+                unique_reviews.append(review)
+                seen.add(normalized)
+        
+        reviews_content = " || ".join(unique_reviews)
+        
+        # STEP 11: Close review panel
+        await page.keyboard.press("Escape")
+        await asyncio.sleep(0.5)
+        
+        return reviews_content
+        
+    except Exception as e:
+        print(f"[S{scraper_id}] ❌ Review extraction failed for '{place_name}': {str(e)[:150]}")
+        
+        try:
+            await page.keyboard.press("Escape")
+        except:
+            pass
+        
+        return ""
 # ---------------------------------------------------------
 # 📊 PROGRESS TRACKER
 # ---------------------------------------------------------
@@ -450,11 +684,10 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             except:
                 pass
 
-            # MORE SCROLLING to load more results
             await page.mouse.move(100, 400)
             for _ in range(SCROLL_ITERATIONS):
                 await page.mouse.wheel(0, 3000)
-                await asyncio.sleep(random.uniform(0.8, 1.5))
+                await asyncio.sleep(random.uniform(0.5, 1.0))  # OPTIMIZED: Reduced from (0.8, 1.5)
 
             place_elements = await page.locator('a.hfpxzc').all()
             total_found = len(place_elements)
@@ -463,7 +696,6 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             results = []
             success_count = 0
 
-            # Process up to MAX_PLACES_PER_QUERY (100)
             for i in range(min(total_found, MAX_PLACES_PER_QUERY)):
                 try:
                     el = page.locator('a.hfpxzc').nth(i)
@@ -487,65 +719,80 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
                         else:
                             continue
 
-                    await asyncio.sleep(random.uniform(1.5, 2.5))
+                    # LONGER WAIT after clicking place
+                    wait_time = random.uniform(*REVIEW_WAIT_AFTER_CLICK)
+                    await asyncio.sleep(wait_time)
 
+                    # Extract name
                     name = ""
-                    try:
-                        name_loc = page.locator('div[role="main"] h1.DUwDvf').first
-                        if await name_loc.is_visible(timeout=2000):
-                            name = await name_loc.inner_text()
-                    except:
-                        pass
+                    name_selectors = [
+                        'div[role="main"] h1.DUwDvf',
+                        'h1.fontHeadlineLarge',
+                        'h1.DUwDvf',
+                    ]
+                    
+                    for name_sel in name_selectors:
+                        try:
+                            name_loc = page.locator(name_sel).first
+                            if await name_loc.is_visible(timeout=2000):
+                                name = await name_loc.inner_text()
+                                if name and "Results" not in name:
+                                    break
+                        except:
+                            continue
 
                     if not name or "Results" in name:
+                        print(f"[S{scraper_id}] ⚠️ Could not extract name for place {i}")
                         continue
 
                     success_count += 1
                     place_url = page.url
                     lat, lon = extract_coords(place_url)
 
+                    # Extract rating
                     rating = 0.0
-                    try:
-                        rating_text = await page.locator('div.F7nice span').first.inner_text(timeout=1000)
-                        rating = float(rating_text.split()[0].replace(',', '.'))
-                    except:
-                        pass
-
-                    reviews_content = ""
-                    num_reviews = 0
-
-                    if not SKIP_REVIEWS:
+                    rating_selectors = [
+                        'div.F7nice span',
+                        'span.ceNzKf',
+                        'div[jsaction*="rating"] span',
+                    ]
+                    
+                    for rating_sel in rating_selectors:
                         try:
-                            review_tab = page.locator('button[aria-label*="Reviews"]').first
-                            if await review_tab.is_visible(timeout=1000):
-                                await review_tab.click()
-                                await asyncio.sleep(random.uniform(0.8, 1.2))
-
-                                for _ in range(REVIEW_SCROLL_COUNT):
-                                    await page.keyboard.press("PageDown")
-                                    await asyncio.sleep(0.2)
-
-                                await asyncio.sleep(0.5)
-
-                                await page.evaluate("""() => {
-                                    document.querySelectorAll('button.w8nwRe').forEach(btn => btn.click());
-                                }""")
-                                await asyncio.sleep(0.8)
-
-                                review_texts = await page.locator('.wiI7pd').all()
-                                texts = []
-                                for rt in review_texts[:30]:
-                                    txt = await rt.inner_text()
-                                    if txt and len(txt.strip()) > 20:
-                                        texts.append(txt.replace('\n', ' ').strip())
-
-                                reviews_content = " || ".join(texts)
-                                num_reviews = len(texts)
-                                await page.keyboard.press("Escape")
+                            rating_elem = page.locator(rating_sel).first
+                            if await rating_elem.is_visible(timeout=1500):
+                                rating_text = await rating_elem.inner_text()
+                                rating = float(rating_text.split()[0].replace(',', '.'))
+                                break
                         except:
-                            pass
+                            continue
 
-                    # Same fields as before: lat, lon, category hierarchy, etc.
+                    # Extract number of reviews from main page (before clicking reviews)
+                    num_reviews = 0
+                    review_count_selectors = [
+                        'span[role="img"][aria-label*="reviews"]',
+                        'span[role="img"][aria-label*="review"]',
+                        'button[aria-label*="reviews"] span',
+                    ]
+                    
+                    for rev_sel in review_count_selectors:
+                        try:
+                            rev_elem = page.locator(rev_sel).first
+                            if await rev_elem.is_visible(timeout=1500):
+                                aria_label = await rev_elem.get_attribute('aria-label')
+                                if aria_label:
+                                    # Extract number from "768 reviews" or "1,394 reviews"
+                                    import re
+                                    numbers = re.findall(r'([\d,]+)\s*(?:review|Review)', aria_label)
+                                    if numbers:
+                                        num_reviews = int(numbers[0].replace(',', ''))
+                                        break
+                        except:
+                            continue
+
+                    # USE THE ULTRA-ROBUST REVIEW SCRAPER (only for review content)
+                    reviews_content = await scrape_reviews_ultra_robust(page, scraper_id, name)
+
                     results.append({
                         "place_name": name,
                         "url": place_url,
@@ -565,10 +812,13 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
                         results = []
 
                 except Exception as e:
+                    print(f"[S{scraper_id}] ❌ Error at place {i}: {str(e)[:100]}")
                     continue
 
             if results:
                 await file_manager.append_to_csv(results, data_file)
+
+            # Print review success rate
 
             await browser.close()
             
@@ -584,6 +834,7 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             return True, success_count
 
         except Exception as e:
+            print(f"[S{scraper_id}] ❌ Fatal error: {str(e)[:100]}")
             if browser:
                 try:
                     await browser.close()
@@ -598,7 +849,6 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
             
             if ENABLE_AUTO_RETRY and retry_count < MAX_RETRIES:
                 await tracker.update(scraper_id, 'retried')
-                print(f"[S{scraper_id}] 🔄 Retry {retry_count+1}/{MAX_RETRIES}")
                 await asyncio.sleep(5 * (retry_count + 1))
                 
                 new_proxy_config = proxy_config
@@ -613,7 +863,6 @@ async def scrape_places(query, category_info, proxy_config, scraper_id, city_con
                 )
             
             return False, 0
-
 # ---------------------------------------------------------
 # 🚀 Scraper Instance
 # ---------------------------------------------------------

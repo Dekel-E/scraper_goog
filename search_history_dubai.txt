@@ -1,36 +1,100 @@
-Beer hall in International City, Dubai, UAE
-Tapas bar in Bluewaters Island, Dubai, UAE
-Seafood restaurant in Dubai Design District (d3), Dubai, UAE
-Cafe with wifi in Al Barsha, Dubai, UAE
-lake in Downtown Dubai, Dubai, UAE
-Wine bar in Al Wasl, Dubai, UAE
-Viewpoint in La Mer, Dubai, UAE
-Cocktail bar in Business Bay, Dubai, UAE
-Surf school in Dubai Festival City, Dubai, UAE
-Yoga studio in Al Karama, Dubai, UAE
-Viewpoint in Jebel Ali, Dubai, UAE
-Viewpoint in Al Karama, Dubai, UAE
-Historic site in Dubai Production City, Dubai, UAE
-Pilates studio in Dubai Production City, Dubai, UAE
-Bakery in Satwa, Dubai, UAE
-Cafe with wifi in Umm Suqeim, Dubai, UAE
-Pilates studio in Satwa, Dubai, UAE
-Surf school in Dubai Production City, Dubai, UAE
-Food Market in Jebel Ali, Dubai, UAE
-Museum in City Walk, Dubai, UAE
-Gym in Dubai Design District (d3), Dubai, UAE
-Art Gallery in Al Karama, Dubai, UAE
-Viewpoint in Satwa, Dubai, UAE
-Beer hall in Dubai Silicon Oasis, Dubai, UAE
-Beach club in Dubai Media City, Dubai, UAE
-Vermuteria in Al Wasl, Dubai, UAE
-Beach club in Palm Jumeirah, Dubai, UAE
-Museum in Discovery Gardens, Dubai, UAE
-Cafe in Al Karama, Dubai, UAE
-Seafood restaurant in International City, Dubai, UAE
-Gym in La Mer, Dubai, UAE
-Tapas bar in Jumeirah, Dubai, UAE
-Promenade in Al Quoz, Dubai, UAE
-lake in Al Karama, Dubai, UAE
-Viewpoint in Dubai Marina, Dubai, UAE
-Nightclub in DIFC (Dubai International Financial Centre), Dubai, UAE
+Food tour in Dubai, UAE
+Mini golf in Dubai, UAE
+Theme park in Dubai, UAE
+Petting zoo in Dubai, UAE
+Photography gallery in Dubai, UAE
+Science museum in Dubai, UAE
+Private office in Dubai, UAE
+Gym in Dubai, UAE
+Diving center in Dubai, UAE
+Onsen in Dubai, UAE
+Beach bar in Dubai, UAE
+Hammam in Dubai, UAE
+Luxury spa in Dubai, UAE
+Art gallery in Dubai, UAE
+Theater in Dubai, UAE
+Escape room in Dubai, UAE
+Farmers market in Dubai, UAE
+Museum in Dubai, UAE
+Karaoke bar in Dubai, UAE
+Scenic spot in Dubai, UAE
+Water park in Dubai, UAE
+Flea market in Dubai, UAE
+Day spa in Dubai, UAE
+Dance club in Dubai, UAE
+Hot desk in Dubai, UAE
+Bowling in Dubai, UAE
+Night market in Dubai, UAE
+Segway tour in Dubai, UAE
+Snorkeling in Dubai, UAE
+Rooftop restaurant in Dubai, UAE
+Nature reserve in Dubai, UAE
+Indoor playground in Dubai, UAE
+Board game cafe in Dubai, UAE
+Surf school in Dubai, UAE
+Spa in Dubai, UAE
+Restaurant in Dubai, UAE
+Monument in Dubai, UAE
+Playground in Dubai, UAE
+Historical tour in Dubai, UAE
+Meeting room in Dubai, UAE
+Private beach in Dubai, UAE
+Nightclub in Dubai, UAE
+Zip lining in Dubai, UAE
+Business center in Dubai, UAE
+Kids museum in Dubai, UAE
+Comedy club in Dubai, UAE
+Parasailing in Dubai, UAE
+Observation deck in Dubai, UAE
+Wine tasting in Dubai, UAE
+Landmark in Dubai, UAE
+Rock climbing in Dubai, UAE
+Boat tour in Dubai, UAE
+Arcade in Dubai, UAE
+Ice cream shop in Dubai, UAE
+Art museum in Dubai, UAE
+Outlet mall in Dubai, UAE
+Pub in Dubai, UAE
+Turkish bath in Dubai, UAE
+Specialty coffee in Dubai, UAE
+Trampoline park in Dubai, UAE
+Cafe in Dubai, UAE
+Cooking class in Dubai, UAE
+Shopping mall in Dubai, UAE
+Historic site in Dubai, UAE
+Kids club in Dubai, UAE
+Rooftop bar in Dubai, UAE
+Yoga studio in Dubai, UAE
+Movie theater in Dubai, UAE
+Bowling in Dubai, UAE
+Cocktail bar in Dubai, UAE
+Pizza place in Dubai, UAE
+Coffee shop in Dubai, UAE
+Amusement park in Dubai, UAE
+IMAX in Dubai, UAE
+Toy store in Dubai, UAE
+Market in Dubai, UAE
+Coworking space in Dubai, UAE
+Walking tour in Dubai, UAE
+Ballet in Dubai, UAE
+Sauna in Dubai, UAE
+Park in Dubai, UAE
+Art workshop in Dubai, UAE
+Laser tag in Dubai, UAE
+Burger joint in Dubai, UAE
+Concert hall in Dubai, UAE
+History museum in Dubai, UAE
+Botanical garden in Dubai, UAE
+Wine tasting in Dubai, UAE
+Escape room in Dubai, UAE
+Cafe with wifi in Dubai, UAE
+Viewpoint in Dubai, UAE
+Frozen yogurt in Dubai, UAE
+Gelato shop in Dubai, UAE
+Wine bar in Dubai, UAE
+Beach in Dubai, UAE
+Fine dining in Dubai, UAE
+Bike tour in Dubai, UAE
+Kayaking in Dubai, UAE
+Work-friendly cafe in Dubai, UAE
+Beach club in Dubai, UAE
